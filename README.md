@@ -1,0 +1,40 @@
+## 📌 Project Overview
+
+This project bridges field biology with edge computing to create an automated, non-invasive wildlife monitoring station. By utilizing a localized AI model and targeting geographical coordinates, the system achieves highly accurate species identification directly on a low-power single-board computer, making it ideal for remote conservation deployments.
+
+### Key Features
+* **Continuous Edge Monitoring:** Real-time acoustic capture utilising a thread-safe loop with overflow protection.
+* **Hardware-Optimised DSP:** 5th-order Butterworth High-Pass filtering targeting hardware noise and low-frequency interference.
+* **Geofenced Machine Learning:** BirdNET framework optimized using regional coordinates (Bengaluru, India) to accelerate inference and reduce false positives.
+* **Storage-Safe Data Persistence:** Automated file generation for verified detections alongside an immediate garbage-collection routine for empty audio windows to protect MicroSD lifecycles.
+
+---
+
+## ⚙️ Technical Architecture & Pipeline
+
+### 1. Audio Processing Pipeline
+* **Capture:** 16-bit PCM stereo audio sampled at $44.1\text{ kHz}$. Maintaining a $44.1\text{ kHz}$ rate preserves standard hardware compatibility on the Pi while mitigating resampling artifacts.
+* **DSP Noise Mitigation:** A 5th-order **Butterworth High-Pass Filter** with a strict cutoff frequency ($f_c$) of $1000\text{ Hz}$. This targeted attenuation isolates high-frequency bird vocalizations while eliminating low-frequency laptop/Pi fan whines, wind rumble, and power-line hum.
+* **Amplitude Normalization:** Peak amplitude scaling to maximum 16-bit dynamics ($\pm 32767$ integers). This enhances the signal-to-noise ratio (SNR) for the AI analysis layer without clipping.
+
+### 2. Edge AI Inference & Logic
+* **Inference Engine:** `birdnetlib.analyzer` executing local embedded evaluations.
+* **Spatial Constraints:** Geofenced to local coordinates ($\text{Lat: } 12.97$, $\text{Lon: } 77.59$) to filter out non-native avian species, heavily optimizing processing speed and accuracy.
+* **Threshold Mechanics:** A baseline confidence filter set at $\ge 35\%$ ($0.35$). 
+* **Dynamic File Persistence:** If an acoustic signature passes the threshold, the temporary buffer is transformed into a timestamped file formatted as `{Common_Name}_{YYYYMMDD_HHMMSS}.wav`. If no match is found, the system triggers an automated garbage-collection routine to delete the temporary wave file, protecting local storage capacity.
+
+---
+
+## 🛠️ System Specifications & Hardware Configuration
+
+* **Compute Platform:** Raspberry Pi 3 Model B+ ($1.4\text{ GHz}$ Quad-core ARM Cortex-A53, $1\text{ GB}$ LPDDR2 SDRAM).
+* **Audio Interface:** USB Sound Card or USB Microphone configured at hardware `INDEX = 1`.
+* **Storage Framework:** MicroSD card with automated temporary file flushing to protect read/write lifecycles.
+
+### Core Script Constants (`inputtest.py`)
+```python
+INDEX = 1               # Target hardware address for USB Audio Interface
+RATE = 44100            # Sample Rate in Hz (Native Hardware Synchronization)
+CHANNELS = 2            # Stereo Processing Input
+RECORD_SECONDS = 15     # Standard temporal analysis frame for BirdNET
+TEMP_FILENAME = "temp_capture.wav" # Ephemeral audio cache
